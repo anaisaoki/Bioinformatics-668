@@ -1,0 +1,10 @@
+
+########## PART 1 ##########
+GACCTTTACNumber of G's & C's in the DNA Sequence above is:4GATCCTGGCTCAGGACGAACGCTGGCGGCGTGCTTAACACATGCAAGTCGAGCGGTAAGGCCCTTCGGGGTACACGAGCGGCGAACGGGTGAGTAACACGTGGGTGATCTGGGGCCCCATCTANumber of G's & C's in this DNA Sequence above is:76
+########## PART 2 ##########
+AGGCTGTTGCNumber of C's & G's in this sequence is:6100.660.0
+########## PART 3 ##########
+Total counts of each base    A:   20    T:   20    G:   30    C:   40
+########## PART 4 ##########
+['Tiny Tim', 'Chrysanthemum', 'Beyonce', 'Bob', 'Sgt. Rock', 'Boba Fett', 'Tara', 'Merkel', 'Lando', 'Dwight']['Merkel', 'Tara', 'Boba Fett', 'Dwight', 'Tiny Tim', 'Bob', 'Chrysanthemum', 'Sgt. Rock', 'Beyonce', 'Lando']['Sgt. Rock', 'Tara', 'Dwight', 'Chrysanthemum', 'Beyonce', 'Bob', 'Boba Fett', 'Tiny Tim', 'Merkel', 'Lando']['Merkel', 'Sgt. Rock', 'Dwight', 'Chrysanthemum', 'Boba Fett', 'Lando', 'Tiny Tim', 'Beyonce', 'Tara', 'Bob']['Bob', 'Boba Fett', 'Dwight', 'Merkel', 'Tara', 'Tiny Tim', 'Lando', 'Sgt. Rock', 'Beyonce', 'Chrysanthemum']['Merkel', 'Chrysanthemum', 'Sgt. Rock', 'Tara', 'Lando', 'Beyonce', 'Tiny Tim', 'Dwight', 'Boba Fett', 'Bob']['Beyonce', 'Lando', 'Sgt. Rock', 'Chrysanthemum', 'Boba Fett', 'Tiny Tim', 'Dwight', 'Merkel', 'Tara', 'Bob']['Merkel', 'Tara', 'Bob', 'Tiny Tim', 'Boba Fett', 'Dwight', 'Sgt. Rock', 'Chrysanthemum', 'Lando', 'Beyonce']['Dwight', 'Boba Fett', 'Merkel', 'Lando', 'Tara', 'Bob', 'Beyonce', 'Sgt. Rock', 'Tiny Tim', 'Chrysanthemum']['Beyonce', 'Merkel', 'Dwight', 'Chrysanthemum', 'Tara', 'Tiny Tim', 'Bob', 'Lando', 'Boba Fett', 'Sgt. Rock']
+########## PART 5 ##########
