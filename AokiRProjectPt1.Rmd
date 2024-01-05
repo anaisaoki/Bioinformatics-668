@@ -1,0 +1,137 @@
+---
+title: "AokiRProjectPt1"
+output: pdf_document
+date: '2022-03-04'
+---
+```{r}
+d=read.table("RTestData.txt", header=TRUE)
+```
+Part A: Univariate statistics with R
+```{r}
+#Make histograms, run qqnorm and qqline
+hist(d$strep, main="Percent of Streptococcus bacteria")
+qqnorm(d$strep, main="Q-Q Plot: Streptococcus bacteria")
+qqline(d$strep)
+
+hist(d$prev, main="Percent of Prevotella bacteria")
+qqnorm(d$prev, main="Q-Q Plot: Prevotella bacteria")
+qqline(d$prev)
+
+hist(d$lepto, main="Percent of Leptotrichia bacteria")
+qqnorm(d$lepto, main="Q-Q Plot: Leptotrichia bacteria")
+qqline(d$lepto)
+
+hist(d$fuso, main="Percent of Fusobacteria")
+qqnorm(d$fuso, main="Q-Q Plot: Fusobacteria")
+qqline(d$fuso)
+
+hist(d$veil, main="Percent of Veillonella bacteria")
+qqnorm(d$veil, main="Q-Q Plot: Veillonella bacteria")
+qqline(d$veil)
+
+d$deepest=sqrt(d$deepest)
+hist(d$deepest, main ="Depths of Deepest Gum Pocket in Mouth")
+qqnorm(d$deepest, main="Q-Q Plot: Deepest")
+qqline(d$deepest)
+
+#Check for normality
+shapiro.test(d$strep) #pass normality test p-value = 0.5625
+shapiro.test(d$prev) #non-normal
+shapiro.test(d$lepto) #non-normal
+shapiro.test(d$fuso) #non-normal, having hard time normalizing
+shapiro.test(d$veil) #non-normal
+shapiro.test(d$deepest) #pass normality test p-value =0.100
+
+#Transform non-normal, create histograms, qnorm and qqline 
+d$prev=sqrt(d$prev)
+hist(d$prev, main="Norm:Prevotella bacteria")
+qqnorm(d$prev, main = "Q-Q Plot Norm:Prevotella bacteria")
+qqline(d$prev)
+
+d$lepto=sqrt(d$lepto)
+hist(d$lepto, main="Norm:Leptotrichia bacteria")
+qqnorm(d$lepto, main="Q-Q Plot Norm: Leptotrichia bacteria")
+qqline(d$prev)
+
+d$veil=sqrt(d$veil)
+hist(d$veil, main="Norm:Veillonella bacteria")
+qqnorm(d$veil, main="Q-Q Plot Norm: Veillonella bacteria")
+
+#One-way ANOVA and summary and boxplots
+lepto <- aov(d$time~d$lepto)
+summary(lepto)
+boxplot(d$lepto~d$time)
+strep <- aov(d$time~d$strep)
+summary(strep)
+boxplot(d$strep~d$time)
+#Correlation analysis
+cor.test(d$strep,d$prev)
+cor.test(d$strep,d$fuso)
+cor.test(d$fuso,d$lepto)
+#Linear Regression 
+mod1 <- lm(d$strep ~ d$deepest)
+plot(d$strep ~ d$deepest)
+abline(mod1)
+
+mod1 <- lm(d$fuso ~ d$deepest)
+plot(d$fuso ~ d$deepest)
+abline(mod1)
+```
+Part B: Use ggplot2 to make pretty graphs
+```{r}
+library(ggplot2)
+#histogram of prev 
+ggplot(data = d, aes(prev))+ 
+  geom_histogram()
+#scatterplot of strep by deepest, colored by time
+ggplot(data = d, aes(x = strep, y = deepest, color = time)) + 
+  geom_point() +
+  ggtitle("Strep by Deepest")
+#scatterplot of fuso by deepest
+ggplot(data = d, aes(x = fuso, y = deepest, color = time)) + 
+  geom_point() +
+  ggtitle("Fuso by Deepest")
+#same as 3?
+ggplot(data = d, aes(x = fuso, y = deepest, color = time)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  ggtitle("Fuso by Deepest: Smooth")
+```
+Part C: Vegan analysis 
+```{r}
+install.packages("vegan")
+library(vegan)
+df= d[2:6] #Make a new data set
+dnew=df*100
+#Calculate alpha diversity (Shannon)
+diversity(dnew,"shannon")
+spAbund <- rowSums(dnew)
+spAbund
+#Rarefy the data and make plot using rarecurve
+raremin <- min(rowSums(dnew))
+raremin
+sRare <- rarefy(dnew, raremin)
+sRare
+rarecurve(dnew, col = "blue")
+#Calculate Bray-Curtis matrix, show matrix in histogram
+bray = vegdist(dnew, "bray")
+bray
+hist(bray, xlim = range(0.0, 1.0))
+
+#Make multidimensional scaling plot using Bray-Curtis matrix
+dnew_community.mds <- metaMDS(comm = dnew, distance = "bray", trace = FALSE, autotransform = FALSE)
+plot(dnew_community.mds$points)
+#Color plot by status then time
+MDS_xy <- data.frame(dnew_community.mds$points)
+MDS_xy$status <- d$status
+MDS_xy$time <- d$time
+library(ggplot2)
+ggplot(MDS_xy, aes(MDS1, MDS2, color = status)) +
+  geom_point() +
+  theme_bw()
+ggplot(MDS_xy, aes(MDS1, MDS2, color = time)) +
+  geom_point() +
+  theme_bw()
+dnew_community.mds$stress
+
+```
