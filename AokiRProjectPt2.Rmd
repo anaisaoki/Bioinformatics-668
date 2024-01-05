@@ -1,0 +1,332 @@
+---
+title: "AokiRProjectPt2"
+output: html_document
+date: '2022-03-05'
+---
+Here we goooo!
+
+Background: In this workshop we are going to analyze a data set on the biodiversity of grassland plants in Alberta. This data set consists of data on the occurrence of grassland plants at several different sites in Alberta, along with information on their functional traits and phylogenetic relationships.
+
+
+```{r Biodiversity Analysis}
+library(picante)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(car)
+comm <- read.csv("grassland_data/grassland.community.csv", header = TRUE, row.names = 1)
+```
+
+```{r Community Data}
+#dataset 
+class(comm)
+#dimension of dataset
+dim(comm)
+#row names
+rownames(comm)
+#header names
+head(colnames(comm))
+#peek at first five rows/columns
+comm[1:5, 1:5]
+#check total abundance in each sample
+apply(comm, 1, sum)
+#percent cover > relative abundance & check total abundance
+comm <- decostand(comm, method = "total")
+apply(comm,1,sum)
+#view transformed data
+comm[1:5, 1:5]
+```
+
+```{r Trait Data}
+traits <- read.csv("grassland_data/species.traits.csv", header = TRUE, row.names = 1)
+head(traits)
+#plot data
+pairs(traits)
+#Log transform data & plot
+traits <- log10(traits)
+pairs(traits)
+```
+
+```{r Metadata}
+metadata <- read.csv("grassland_data/plot.metadata.csv", header = TRUE, row.names = 1)
+head(metadata)
+```
+
+```{r Phylogeny}
+phy <- read.tree("grassland_data/grassland.phylogeny.newick")
+class(phy)
+phy
+#lists elements 
+names(phy)
+#view first few tip labels
+phy$tip.label[1:5]
+#Gives us the total "tip" count/individual organisms
+Ntip(phy)
+#Plot phylogeny
+plot(phy, cex = 0.5)
+```
+
+```{r Cleaning and matching data sets}
+ls()
+#check for mismatches/missing species
+combined <- match.phylo.comm(phy, comm)
+#sorted data
+phy <- combined$phy
+comm <- combined$comm
+#trait data
+phy <- combined$phy
+traits <- combined$data
+#check that data are in the same order
+all.equal(rownames(comm), rownames(metadata))
+metadata <- metadata[rownames(comm),]
+```
+
+Visualizing and Summarizing Biodiversity data
+Species accumulation curves allow researchers to assess and compare diversity across populations or to evaluate need for additional sampling
+```{r community richness and diversity}
+
+#comparing species richness between relative moisture 
+boxplot(specnumber(comm)~metadata$rel.moisture, ylab="# of species")
+#Looking at the boxplot, species richness is very similar for relative moisture level 2 and 3. Without doing an ANOVA test it is hard to determine if level 1 is significantly different (overlapping confidence interval bars)
+
+#we need to run an anova test since there are 3 moisture types 
+moisture <- aov(specnumber(comm) ~ metadata$rel.moisture)
+summary(moisture) 
+#Anova test states statistically significant results, meaning at least one of the three relative moisture  differ from each other 
+
+#plot species accumlion curve 
+plot(specaccum(comm), xlab = "# of samples", ylab = "# of species")
+#From the curve it looks like it would be good to sample more species to get a better estimation of diversity.
+
+```
+Multivariate community analysis
+-Hierarchical clustering is used to find structure in sampling data by creating groupings of similar characteristics. The key to interpretting a dendrogram is to focus on the height at which any two species are joined together. 
+-Bray-Curtis dissimilarity is a way to measure any compositional dissimilarities between two sampling sites, such as the species found in each of those sites.
+    If 0, the two sites share all the same species; if 1, they don’t share any species.
+-Average-linkage algorithm is used to determine where the distance between each cluster (for each pair of observations they are added up and divided by the number of pairs to get a total average distance)
+```{r Hierarchical clustering}
+#Bray-curtis 
+comm.bc.dist <- vegdist(comm, method = "bray")
+#Distance calculated (27*26)/2
+
+#Cluster communities using average-linkage algorithm 
+comm.bc.clust <- hclust(comm.bc.dist, method = "average")
+
+#Plot Cluster Diagram
+plot(comm.bc.clust, ylab = "Bray-Curtis dissimilarity")
+```
+
+Ordination plots community data with similar species and samples plotted close together and species/samples that are more dissimilar farther apart. 
+```{r ordination}
+#Use metaMDS to auto transform data & check robustness
+comm.bc.mds <- metaMDS(comm, dist = "bray")
+#Robustness pass, Stress values all fall below 0.1
+
+#goodness of fit (stress plot)
+stressplot(comm.bc.mds)
+
+#plot site scores as text
+ordiplot(comm.bc.mds, display = "sites", type = "text")
+#automated plotting, tries to eliminate overlapping labels
+ordipointlabel(comm.bc.mds) #wow thats an eye sore
+
+#dont plot
+mds.fig <- ordiplot(comm.bc.mds, type = "none")
+
+
+#plotting samples, color by moisture, pch=19 means plot a circle
+points(mds.fig, "sites", pch = 19, col = "green", select = metadata$rel.moisture == 
+    "1")
+points(mds.fig, "sites", pch = 19, col = "gold", select = metadata$rel.moisture == 
+    "2")
+points(mds.fig, "sites", pch = 19, col = "coral", select = metadata$rel.moisture == 
+    "3")
+#adding confidence ellipses around moisure types
+# add confidence ellipses around moisture types
+ordiellipse(comm.bc.mds, metadata$rel.moisture, conf = 0.95, label = TRUE)
+# overlay the cluster results we calculated earlier
+ordicluster(comm.bc.mds, comm.bc.clust, col = "gray")
+
+ordiplot(comm.bc.mds)
+# calculate and plot environmental variable correlations with the axes use
+# the subset of metadata that are environmental data
+plot(envfit(comm.bc.mds, metadata[, 3:6]))
+
+```
+
+Trait Evolution
+Niche conservatism: Phylogenetic signal means that closely related species have similar traits. 
+The K statistic is a measure of phylogenetic signal comparing the observed signal of a trait to a signal under a Brownian motion model of trait evolution on phylogeny. (Blomberg et al. 2003).
+K of 1: implies some degree of phylogenetic signal and conservatism of traits
+K closer to 0: correspond to a random or convergent pattern of evolution
+K greater than 1: indicates strong phylogenetic signal 
+
+```{r Trait Evolution}
+#Measuring phylogenetic signal by adding Kcalc function to data.fram
+apply(traits, 2, Kcalc, phy)
+#K values are less than 1, which means traits being observed could be due to random or convergent pattern of evolution
+
+#Convert tree to generate p values
+multiPhylosignal(traits, multi2di(phy))
+#PIC. variance observation p values are less than 0.05 indication of non-random phylogenetic signal. 
+
+#visualizing trait evolution 
+# Plot phylogeny facing upwards. Show node labels but not tip labels. cex
+# shrinks labels.
+plot(phy, direction = "up", show.tip.label = FALSE, show.node.label = TRUE, 
+    cex = 0.7)
+# Plot leaf area on the phylogeny. cex argument scales symbol size by trait
+# value.
+tiplabels(pch = 19, col = "black", cex = 3 * (traits[, "LeafArea"]/max(traits[, 
+    "LeafArea"])))
+
+# plot Sphaeralcea abundance. cex increases the size of bubbles.
+ordisurf(comm.bc.mds, comm[, "Sphaeralcea_coccinea"], bubble = TRUE, main = "Sphaeralcea coccinea abundance", 
+    cex = 3)
+```
+Phylogenetic signal: Indicator of the tendency of species to resemble each other more than other species. High value of phylogenetic signal results in an existence of similar traits between closely related biological species, while increasing evolutionary distance between related species leads to decrease in similarity.
+```{r phylogenetic analysis of trait relationships}
+# GLS of root tissue density as a function of SRL - non-phylogenetic model
+root.gls <- gls(RootTissueDens ~ SRL, data = traits)
+anova(root.gls)
+# Phylogenetic GLS - adds effect of phylogeny to the model
+root.pgls <- gls(RootTissueDens ~ SRL, correlation = corBrownian(value = 1, 
+    phy), data = traits)
+anova(root.pgls)
+# plot relationship
+plot(RootTissueDens ~ SRL, data = traits, xlab = "SRL (specific root length)", 
+    ylab = "Root tissue density")
+# add model fit lines - coef is the model fit coefficients, lwd increases
+# line width
+abline(coef(root.gls), lwd = 2, col = "black")
+abline(coef(root.pgls), lwd = 2, col = "red")
+legend("bottomleft", legend = c("GLS fit", "Phylogenetic GLS fit"), lwd = 2, 
+    col = c("black", "red"))
+```
+Phylogenetic and trait diversity
+```{r phylogenetic diversity}
+#calculate faiths PD
+comm.pd <- pd(comm, phy)
+head(comm.pd)
+# Plot Faith's PD by moisture level
+boxplot(comm.pd$PD ~ metadata$rel.moisture, xlab = "Moisture", ylab = "Faith's PD")
+# Test for PD differences among habitats (Use ANOVA not t-test)
+aov(comm.pd$PD ~ metadata$rel.moisture)
+# Compare PD and species richness
+plot(comm.pd$PD ~ comm.pd$SR, xlab = "Species richness", ylab = "Faith's PD")
+```
+MPD, MNTD, SES(MPD) and SES(MNTD): Measures of community phylogenetic structure
+Positive SES values (mpd.obs.z > 0) and high quantiles (mpd.obs.p > 0.95)
+indicate phylogenetic evenness, or a greater phylogenetic distance among co-occurring
+10
+species than expected. Negative SES values and low quantiles (mpd.obs.p < 0.05)
+indicate phylogenetic clustering, or small phylogenetic distances among co-occurring
+species than expected. MPD is generally thought to be more sensitive to tree-wide
+patterns of phylogenetic clustering and eveness, while MNTD is more sensitive to
+patterns of evenness and clustering closer to the tips of the phylogeny. 
+(r documentation-picante package)
+```{r Phylogenetic relatedness}
+# convert phylogenety to a distance matrix
+phy.dist <- cophenetic(phy)
+# calculate ses.mpd
+comm.sesmpd <- ses.mpd(comm, phy.dist, null.model = "richness", abundance.weighted = FALSE, 
+    runs = 999)
+head(comm.sesmpd)
+# calculate ses.mntd
+comm.sesmntd <- ses.mntd(comm, phy.dist, null.model = "richness", abundance.weighted = FALSE, 
+    runs = 999)
+head(comm.sesmntd)
+# compare ses.mpd between moisture
+
+plot(comm.sesmpd$mpd.obs.z ~ metadata$rel.moisture, xlab = "Moisture", ylab = "SES(MPD)")
+abline(h = 0, col = "gray")
+#anova ses.mpd
+aov(comm.sesmpd$mpd.obs.z ~ metadata$rel.moisture)
+
+# compare ses.mntd between habitats
+plot(comm.sesmntd$mntd.obs.z ~ metadata$rel.moisture, xlab = "Moisture", ylab = "SES(MNTD)")
+abline(h = 0, col = "gray")
+#anova ses.mnt
+aov(comm.sesmntd$mntd.obs.z ~ metadata$rel.moisture)
+```
+Trait diversity can be calculated similar to methods used to calculate phylogenetic diversity. First, we need to calculate the standardized effect size of functional trait diversity by comparing dissimilarity between among co-occuring species and then comparing those observed traits to a null model. 
+```{r Trait diversity}
+# calculate trait distance - Euclidean distance among scaled trait values -
+# we want the full distance matrix
+trait.dist <- as.matrix(dist(scale(traits), method = "euclidean"))
+# calculate trait ses.mpd
+comm.sesmpd.traits <- ses.mpd(comm, trait.dist, null.model = "richness", abundance.weighted = FALSE, 
+    runs = 999)
+# compare trait ses.mpd between moisture
+boxplot(comm.sesmpd.traits$mpd.obs.z ~ metadata$rel.moisture, xlab = "Rel.moisture", ylab = "Trait SES(MPD)")
+abline(h = 0, col = "gray")
+#species ranking in relative moisture levels 2 and 3 are more phylogenetically similar than to relative moisture level 1.
+```
+Phylogenetic beta-diversity
+Mantel test:statistical test of correlation between two matrices
+```{r using unifrac and phylosor}
+
+# calculate phylogenetic MNTD beta diversity
+comm.mntd.dist <- comdistnt(comm, phy.dist, abundance.weighted = TRUE)
+# calculate functional trait MNTD beta diversity
+
+comm.mntd.traits.dist <- comdistnt(comm, trait.dist, abundance.weighted = TRUE)
+# calculate Mantel correlation for taxonomic Bray-Curtis vs. phylogenetic
+# MNTD diversity
+mantel(comm.bc.dist, comm.mntd.dist)
+#There is a strong positive correlation between taxonomic distance of samples caculated using Bray-Curtis and phylogenetic dissimilarity scores
+
+# calculate Mantel correlation for taxonomic Bray-Curtis vs. trait MNTD
+# diversity
+mantel(comm.bc.dist, comm.mntd.traits.dist)
+```
+Phylogeny/trait-based ordinations
+
+```{r NMDS ordination}
+
+# NMDS ordination of phylogenetic distances - use monoMDS since we only have
+# among-sample distances
+comm.mntd.mds <- monoMDS(comm.mntd.dist)
+# set up the plotting area but don't plot anything yet
+mds.fig <- ordiplot(comm.mntd.mds, type = "none")
+# plot just the samples, color by habitat, pch=19 means plot a circle
+points(mds.fig, "sites", pch = 19, col = "green", select = metadata$rel.moisture == 
+    "1")
+points(mds.fig, "sites", pch = 19, col = "blue", select = metadata$rel.moisture == 
+    "2")
+points(mds.fig, "sites", pch = 19, col = "blue", select = metadata$rel.moisture == 
+    "3")
+# add confidence ellipses around rel.moisture
+ordiellipse(comm.mntd.mds, metadata$rel.moisture, conf = 0.95, label = TRUE)
+
+# NMDS ordination of trait distances - use monoMDS since we only have
+# among-sample distances
+comm.mntd.traits.mds <- monoMDS(comm.mntd.traits.dist)
+# set up the plotting area but don't plot anything yet
+mds.fig <- ordiplot(comm.mntd.traits.mds, type = "none")
+# plot just the samples, colour by moisture, pch=19 means plot a circle
+points(mds.fig, "sites", pch = 19, col = "green", select = metadata$rel.moisture == 
+    "1")
+points(mds.fig, "sites", pch = 19, col = "blue", select = metadata$rel.moisture == 
+    "2")
+points(mds.fig, "sites", pch = 19, col = "blue", select = metadata$rel.moisture == 
+    "3")
+# add confidence ellipses around habitat types
+ordiellipse(comm.mntd.traits.mds, metadata$rel.moisture, conf = 0.95, label = TRUE)
+```
+Adonis: Analysis of variance using distance matrices
+The function partition sums of squares of a multivariate data set, and they are directly analogous to MANOVA (multivariate analysis of variance). The R-square value gives us the effect size. 
+In a MANOVA analysis, multiple continuous dependent variables are taken into account and tests whether or not the independent variable explains a statiscially significant amount of variance in the dependent variable. 
+```{r Testing for multivariate differences among groups}
+
+# Taxonomic (Bray-Curtis) dissimilarity explained
+adonis(comm.bc.dist ~ rel.moisture, data = metadata) 
+
+# Phylogenetic dissimilarity explained
+adonis(comm.mntd.dist ~ rel.moisture, data = metadata)
+
+# Trait dissimilarity explained
+adonis(comm.mntd.traits.dist ~ rel.moisture, data = metadata)
+
+#rel.moisture is significantly associated with taxonomic, phylogenetic and trait dissimilarity scores
+```
