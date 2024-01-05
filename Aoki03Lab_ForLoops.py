@@ -177,7 +177,7 @@ for i in range(0,10):
 #-------------------------------------------------------------------------------
 print("\n########## PART 5 ##########\n")
 out.write("\n########## PART 5 ##########\n")
-out.close()
+
 
 #PART 5 - Write everthing to a file!!
 
@@ -201,4 +201,4 @@ outfile.close()
 
 """
 
-
+out.close()
